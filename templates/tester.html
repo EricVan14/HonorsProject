@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>File Upload</title>
+    <style>
+        .loader {
+            border: 16px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 16px solid #3498db;
+            width: 120px;
+            height: 120px;
+            -webkit-animation: spin 2s linear infinite; /* Safari */
+            animation: spin 2s linear infinite;
+            display: none; /* Hidden by default */
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+        /* Safari */
+        @-webkit-keyframes spin {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+  </head>
+  <body>
+
+    <div class="loader" id="loader"></div> <!-- Loading symbol -->
+
+    <h2>Upload PCAP File</h2>
+    <form id="uploadForm">
+      <input type="file" id="fileInput" name="pcapFile"><br><br>
+      <label for="isTor">Is this a Tor file?</label>
+      <select name="isTor" id="isTor">
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select><br><br>
+      <input type="button" value="Submit" onclick="uploadFile()">
+    </form> 
+    <div id="accuracyResult" style="text-align:center; margin-top:20px;"></div>
+    <script src="{{ url_for('static', filename='upload.js') }}"></script>
+  </body>
+</html>
