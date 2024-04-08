@@ -1,35 +1,34 @@
 import sys
 import pandas as pd
 import joblib
-from sklearn.metrics import accuracy_score
+import numpy as np
 
 def load_data(csv_file_path):
-    """
-    Load the features and labels from the CSV file.
-    """
+    # Load the features from the created CSV, excluding IP addresses for the feature set
     data = pd.read_csv(csv_file_path)
-    # Correcting the selection of multiple columns
+    IPs = data[['Src_IP', 'Dst_IP']]
     X = data[['StDev_pkts_length', 'Max_payload', 'Avg_pkts_length', 'Min_pkts_length']]
-    y = data['Label']
-    return X, y
+    return X, IPs
 
 def preprocess_data(X, scaler_path):
-    """
-    Apply preprocessing to the data (e.g., scaling).
-    """
+    # Scaling the data
     scaler = joblib.load(scaler_path)
     X_scaled = scaler.transform(X)
     return X_scaled
 
-def evaluate_model(model_path, scaler_path, X, y):
-    """
-    Load the model, predict labels, and evaluate accuracy.
-    """
+def evaluate_model(model_path, scaler_path, X, IPs):
+    # Load the model and predict Tor likelihood
     model = joblib.load(model_path)
     X_processed = preprocess_data(X, scaler_path)
-    y_pred = model.predict(X_processed)
-    accuracy = accuracy_score(y, y_pred)
-    return accuracy
+    y_pred_proba = model.predict_proba(X_processed)[:, 1]  # Get confidence scores for the positive class
+    
+    # Filter for high-confidence Tor predictions
+    tor_ips = IPs[y_pred_proba > 0.5]  # Example threshold, adjust based on your model
+    tor_ips['Confidence'] = y_pred_proba[y_pred_proba > 0.5]
+    
+    # Return unique Tor IPs with average confidence
+    unique_tor_ips = tor_ips.groupby(['Src_IP', 'Dst_IP']).Confidence.mean().reset_index()
+    return unique_tor_ips
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
@@ -40,6 +39,6 @@ if __name__ == "__main__":
     scaler_path = sys.argv[2]
     csv_file_path = sys.argv[3]
 
-    X, y = load_data(csv_file_path)
-    accuracy = evaluate_model(model_path, scaler_path, X, y)
-    print(accuracy)
+    X, IPs = load_data(csv_file_path)
+    tor_ips = evaluate_model(model_path, scaler_path, X, IPs)
+    print(tor_ips.to_json(orient="records"))

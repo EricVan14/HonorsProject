@@ -3,13 +3,11 @@
 import csv, os, glob, re
 import sys
 
-# Expecting two additional arguments: file path and is_tor flag
-if len(sys.argv) != 3:
-    print("Usage: python process_pcap.py <path_to_pcap_file> <is_tor>")
+if len(sys.argv) != 2:
+    print("Usage: python process_pcap.py <path_to_pcap_file>")
     sys.exit(1)
 
 pcap_file_path = sys.argv[1]
-is_tor = sys.argv[2] == 'true'
 
 class CSV():
 
@@ -63,9 +61,9 @@ class CSV():
             self.current_file_name = file_name
 
     def add_row(self, row):
-        csv_writer = csv.writer(self.csv_w, delimiter=",")
+        csv_writer = csv.writer(self.csv_w, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
         csv_writer.writerow(row)
-        self.rows = self.rows + 1
+        self.rows += 1
 
     def close_csv(self):
         if(self.csv_w is not None):
@@ -114,9 +112,8 @@ import glob
 
 class CreateFeaturesHandler():
 
-    def __init__(self,pcap_file_path, is_tor, pkts_window_size=10, single_csv=True):
+    def __init__(self,pcap_file_path, pkts_window_size=10, single_csv=True):
         self.pcap_file_path = pcap_file_path
-        self.is_tor = is_tor
         self.pkts_window_size = pkts_window_size
         assert self.pkts_window_size >= 1, "Invalid value for the window size"
         self.single_csv = single_csv
@@ -138,7 +135,7 @@ class CreateFeaturesHandler():
 
     def compute_features(self):
         filter_res = []
-        flow_type = "malware" if self.is_tor else "legitimate"
+        flow_type = "malware" #Doesnt matter because wont be using the Label value anymore
         if self.featuresCalc.get_flow_type() == flow_type:
             pass
         else:
@@ -192,9 +189,10 @@ class FeaturesCalc():
             self.label = self.legitimate_label
 
         self.features_name = ["Avg_syn_flag", "Avg_urg_flag", "Avg_fin_flag", "Avg_ack_flag", "Avg_psh_flag", "Avg_rst_flag", "Avg_DNS_pkt", "Avg_TCP_pkt",
-        "Avg_UDP_pkt", "Avg_ICMP_pkt", "Duration_window_flow", "Avg_delta_time", "Min_delta_time", "Max_delta_time", "StDev_delta_time",
-        "Avg_pkts_length", "Min_pkts_length", "Max_pkts_length", "StDev_pkts_length", "Avg_small_payload_pkt", "Avg_payload", "Min_payload",
-        "Max_payload", "StDev_payload", "Avg_DNS_over_TCP", "Label"]
+                      "Avg_UDP_pkt", "Avg_ICMP_pkt", "Duration_window_flow", "Avg_delta_time", "Min_delta_time", "Max_delta_time", "StDev_delta_time",
+                      "Avg_pkts_length", "Min_pkts_length", "Max_pkts_length", "StDev_pkts_length", "Avg_small_payload_pkt", "Avg_payload", "Min_payload",
+                      "Max_payload", "StDev_payload", "Avg_DNS_over_TCP", "Src_IP", "Dst_IP", "Label"]
+
 
         self.total_packets = 0
         self.nb_samples = 0
@@ -453,10 +451,17 @@ class FeaturesCalc():
             max_payload = compute_max(compute_packet_TCP_payload_size(packets_list, False))
             stdev_payload = compute_stDev(compute_packet_TCP_payload_size(packets_list, False))
             dns_over_tcp_ratio_normalized = compute_avg(DNS_over_TCP_ratio(packets_list))
+            first_pkt = packets_list[0]
+            if first_pkt.haslayer("IP"):
+                src_ip = first_pkt["IP"].src
+                dst_ip = first_pkt["IP"].dst
+            else:
+                src_ip = "No_IP"
+                dst_ip = "No_IP"
 
             row = [syn_avg, urg_avg, fin_avg, ack_avg, psh_avg, rst_avg, dns_pkt, tcp_pkt, udp_pkt, icmp_pkt, duration_flow, avg_time_flow,
-                    min_time_flow, max_time_flow, stdev_time_flow, pkt_length_avg, pkt_length_min, pkt_length_max, pkt_length_stdev,
-                    small_pkt_payload_avg, avg_payload, min_payload, max_payload, stdev_payload, dns_over_tcp_ratio_normalized, self.label]
+                min_time_flow, max_time_flow, stdev_time_flow, pkt_length_avg, pkt_length_min, pkt_length_max, pkt_length_stdev,
+                small_pkt_payload_avg, avg_payload, min_payload, max_payload, stdev_payload, dns_over_tcp_ratio_normalized, src_ip, dst_ip, self.label]
 
             increment_sample_nb(1)
             update_received_pkts(len(packets_list))
@@ -640,7 +645,7 @@ class PacketFilter():
         return self.ip_blacklist_filter
     
 if __name__ == "__main__":
-    cfh = CreateFeaturesHandler(pcap_file_path, is_tor, single_csv=True)
+    cfh = CreateFeaturesHandler(pcap_file_path, single_csv=True)
     csv_file_path = cfh.compute_features()
-    print(csv_file_path)  # This will be captured by subprocess.run in app.py
+    print(csv_file_path)  # This is to be captured by subprocess.run in app.py
 

@@ -1,3 +1,4 @@
+import json
 from flask import Flask, request, jsonify, render_template
 import subprocess
 import os
@@ -15,7 +16,6 @@ def upload_file():
     if 'pcapFile' not in request.files:
         return 'No file part', 400
     file = request.files['pcapFile']
-    is_tor = request.form['isTor']  
     if file.filename == '':
         return 'No selected file', 400
 
@@ -26,21 +26,17 @@ def upload_file():
     
 
     try:
-        process_result = subprocess.run(['py', 'process_pcap.py', filepath, str(is_tor)], capture_output=True, text=True, check=True)
+        process_result = subprocess.run(['py', 'process_pcap.py', filepath], capture_output=True, text=True, check=True)
         if process_result.returncode != 0:
             process_result("Error running process_pcap.py:")
             process_result(process_result.stderr)
         csv_file_path = process_result.stdout.strip()
 
         evaluate_result = subprocess.run(['py', 'evaluate_model.py', 'rf_model.joblib', 'rf_scaler.joblib', csv_file_path], capture_output=True, text=True, check=True)
-        
-        accuracy = evaluate_result.stdout.strip()
-
-        
+        tor_ips = evaluate_result.stdout
     except subprocess.CalledProcessError as e:
         print(f"Subprocess error: {e}")
         return jsonify({'error': 'Processing failed'}), 500
-    
     finally:
         if os.path.exists(filepath):
             print(filepath)
@@ -48,7 +44,7 @@ def upload_file():
         if csv_file_path and os.path.exists(csv_file_path):
             os.remove(csv_file_path)
 
-    return jsonify({'accuracy': accuracy})
+    return jsonify({'torIPs': json.loads(tor_ips)})
 
 if __name__ == '__main__':
     app.run(debug=True)
