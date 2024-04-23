@@ -4,14 +4,12 @@ import joblib
 import numpy as np
 
 def load_data(csv_file_path):
-    # Load the features from the created CSV, excluding IP addresses for the feature set
     data = pd.read_csv(csv_file_path)
     IPs = data[['Src_IP', 'Dst_IP']]
     X = data[['StDev_pkts_length', 'Max_payload', 'Avg_pkts_length', 'Min_pkts_length']]
     return X, IPs
 
 def preprocess_data(X, scaler_path):
-    # Scaling the data
     scaler = joblib.load(scaler_path)
     X_scaled = scaler.transform(X)
     return X_scaled
@@ -23,7 +21,7 @@ def evaluate_model(model_path, scaler_path, X, IPs):
     y_pred_proba = model.predict_proba(X_processed)[:, 1]  # Get confidence scores for the positive class
     
     # Filter for high-confidence Tor predictions
-    tor_ips = IPs[y_pred_proba > 0.5]  # Example threshold, adjust based on your model
+    tor_ips = IPs[y_pred_proba > 0.5]  
     tor_ips['Confidence'] = y_pred_proba[y_pred_proba > 0.5]
     
     # Return unique Tor IPs with average confidence
